@@ -1,0 +1,276 @@
+=====================================================================
+TAREA 1: INSTALACIÓN Y ADMINISTRACIÓN BÁSICA DE LINUX MINT
+=====================================================================
+Estudiante:    Pedro
+Matrícula:     2026-0530
+Distribución:  Linux Mint 22.3 XFCE (64-bit)
+Virtualización: Oracle VirtualBox
+=====================================================================
+
+
+=====================================================================
+PRÁCTICA 1: INSTALACIÓN DEL SISTEMA OPERATIVO (LINUX MINT)
+=====================================================================
+
+Requisitos mínimos de Linux Mint:
+  - RAM: 2 GB (4 GB recomendado)
+  - Disco: 20 GB (100 GB recomendado)
+  - Resolución: 1024x768
+
+Configuración de la máquina virtual en VirtualBox:
+  - Nombre: linux mint SO3
+  - Tipo: Linux / Ubuntu (64-bit)
+  - Memoria RAM: 4096 MB
+  - Procesadores: 2
+  - Memoria de video: 128 MB
+  - Firmware: UEFI habilitado (Secure Boot deshabilitado)
+  - Disco duro virtual: VDI de tamaño dinámico
+  - Unidad óptica: linuxmint-22.3-xfce-64bit.iso
+
+Configuración de red de la VM:
+  - Adaptador 1 -> Conectado a: Adaptador puente (Bridged Adapter)
+  - Tarjeta del equipo: MediaTek MT7921 Wi-Fi 6 802.11ax PCIe Adapter
+  - En modo Bridge la VM se conecta directamente a la red física,
+    como si fuera otro equipo, y recibe IP del router.
+
+Pasos de la instalación:
+  1. Iniciar la VM y elegir "Start Linux Mint 22.3 Xfce 64-bit".
+  2. En el escritorio, ejecutar "Install Linux Mint".
+  3. Idioma: Español.
+  4. Teclado: Spanish (Latin American).
+  5. Marcar la instalación de códecs multimedia.
+  6. Tipo de instalación: "Borrar disco e instalar Linux Mint".
+  7. Zona horaria: Santo Domingo.
+  8. Crear el usuario (pedroa) y su contraseña.
+  9. Reiniciar y retirar el medio de instalación.
+
+# Verificar que el sistema está instalado en el disco
+# (si aparece /cow, se está en la sesión de prueba del ISO)
+df -h /
+
+
+=====================================================================
+PRÁCTICA 2: CONFIGURACIÓN DE PARÁMETROS DE RED
+=====================================================================
+
+Datos de la red:
+  - Interfaz:            enp0s17
+  - Conexión:            "Conexión cableada 2"
+  - IP por DHCP:         10.0.0.30/24
+  - IP estática usada:   10.0.0.50/24
+  - Puerta de enlace:    10.0.0.1
+  - DNS configurados:    8.8.8.8 y 8.8.4.4 (Google)
+
+---------------------------------------------------------------------
+1. Ver la información de red actual
+---------------------------------------------------------------------
+
+# Muestra las interfaces de red y sus direcciones IP.
+# La palabra "dynamic" indica que la IP fue asignada por DHCP.
+ip a
+
+# Muestra la tabla de enrutamiento. La línea "default via" es la
+# puerta de enlace. "proto dhcp" indica que se obtuvo por DHCP.
+ip route
+
+# Linux Mint administra la red con NetworkManager.
+# Este comando lista las conexiones configuradas.
+nmcli connection show
+
+---------------------------------------------------------------------
+2. Forma 1: nmcli (permanente)
+---------------------------------------------------------------------
+
+# Configurar IP estática
+#   ipv4.method manual -> IP estática
+#   ipv4.addresses     -> IP y máscara
+#   ipv4.gateway       -> puerta de enlace
+sudo nmcli con mod "Conexión cableada 2" ipv4.method manual ipv4.addresses 10.0.0.50/24 ipv4.gateway 10.0.0.1
+
+# Reactivar la conexión para aplicar los cambios
+sudo nmcli con up "Conexión cableada 2"
+
+# Verificar la IP y la conectividad con el gateway
+ip a
+ping -c 4 10.0.0.1
+
+# Volver a DHCP: método automático y borrar IP y gateway manuales
+sudo nmcli con mod "Conexión cableada 2" ipv4.method auto ipv4.addresses "" ipv4.gateway ""
+sudo nmcli con up "Conexión cableada 2"
+ip a
+
+---------------------------------------------------------------------
+3. Forma 2: nmtui (interfaz de menús en la terminal, permanente)
+---------------------------------------------------------------------
+
+sudo nmtui
+
+# IP estática:
+#   1. Editar una conexión -> Conexión cableada 2
+#   2. CONFIGURACIÓN IPv4: cambiar <Automático> por Manual -> Mostrar
+#   3. Direcciones: 10.0.0.50/24
+#   4. Puerta de enlace: 10.0.0.1
+#   5. Aceptar -> Atrás
+#   6. Activar una conexión -> Desactivar y luego Activar
+#   7. Atrás -> Salir
+ip a
+
+# DHCP: repetir los pasos seleccionando "Automático" y borrando
+# la dirección y la puerta de enlace, luego reactivar la conexión.
+ip a
+
+---------------------------------------------------------------------
+4. Forma 3: comando ip (TEMPORAL)
+---------------------------------------------------------------------
+
+# El comando ip modifica la red directamente en el kernel.
+# El cambio NO se guarda: se pierde al reiniciar o reconectar la red.
+
+# Borrar la IP actual de la interfaz
+sudo ip addr flush dev enp0s17
+
+# Asignar la IP estática
+sudo ip addr add 10.0.0.50/24 dev enp0s17
+
+# Agregar la puerta de enlace predeterminada
+sudo ip route add default via 10.0.0.1
+
+ip a
+ip route
+
+# Demostrar que es temporal: al reactivar la conexión vuelve
+# la configuración guardada (DHCP)
+sudo nmcli con up "Conexión cableada 2"
+ip a
+
+---------------------------------------------------------------------
+5. Otras formas que permite el sistema
+---------------------------------------------------------------------
+
+# Netplan: en Linux Mint 22 NetworkManager guarda las conexiones
+# como archivos YAML de Netplan en /etc/netplan/. Se pueden editar
+# directamente y aplicar con "sudo netplan apply".
+nmcli -f NAME,FILENAME connection show
+sudo ls /etc/netplan/
+
+# Forma gráfica: desde el ícono de red de la barra de tareas
+# -> Conexiones de red.
+
+---------------------------------------------------------------------
+6. Configurar los DNS de Google (8.8.8.8 y 8.8.4.4)
+---------------------------------------------------------------------
+
+#   ipv4.dns              -> servidores DNS a usar
+#   ipv4.ignore-auto-dns  -> ignorar los DNS que envía el router
+# Así la IP se obtiene por DHCP pero los DNS quedan fijos.
+sudo nmcli con mod "Conexión cableada 2" ipv4.dns "8.8.8.8 8.8.4.4" ipv4.ignore-auto-dns yes
+sudo nmcli con up "Conexión cableada 2"
+
+# Verificar los DNS configurados
+nmcli dev show enp0s17 | grep DNS
+
+# Si google.com responde, el nombre se resolvió a IP: los DNS funcionan
+ping -c 4 google.com
+
+
+=====================================================================
+PRÁCTICA 3: GESTIÓN DE USUARIOS Y GRUPOS
+=====================================================================
+
+# Crear el usuario con mi nombre (crea /home/pedro y su grupo propio)
+sudo adduser pedro
+
+# Agregarlo al grupo de administradores.
+#   -a (append) agrega sin quitarlo de sus otros grupos
+#   -G indica el grupo
+# En Linux Mint/Ubuntu el grupo de administradores se llama "sudo";
+# sus permisos se definen en el archivo /etc/sudoers.
+sudo usermod -aG sudo pedro
+
+# Verificar los grupos del usuario
+groups pedro
+
+# Ver la regla del grupo sudo en el archivo sudoers
+# (%sudo ALL=(ALL:ALL) ALL -> los miembros pueden ejecutar todo como root)
+sudo grep sudo /etc/sudoers
+
+# Comprobar que el usuario tiene permisos de administración
+su - pedro
+sudo whoami        # debe responder: root
+exit
+
+# Crear el grupo guest y verificarlo
+sudo groupadd guest
+getent group guest
+
+# Crear un usuario y agregarlo al grupo guest
+sudo adduser invitado
+sudo usermod -aG guest invitado
+getent group guest
+
+# Eliminar el usuario (con su carpeta personal) y el grupo
+sudo deluser --remove-home invitado
+sudo groupdel guest
+
+# Verificar que ya no existen
+getent group guest
+id invitado
+
+
+=====================================================================
+PRÁCTICA 4: GESTIÓN DE PERMISOS DE ARCHIVOS
+=====================================================================
+
+# Instalar la versión completa de vim (la versión reducida que trae
+# Mint por defecto no funciona bien con las flechas)
+sudo apt install vim -y
+
+# Crear la carpeta materia y entrar en ella
+mkdir materia
+cd materia
+
+# Crear y editar el archivo con vi
+#   i       -> modo inserción (escribir)
+#   Esc     -> volver al modo normal
+#   :wq     -> guardar (write) y salir (quit)
+vi estudiante.txt
+
+# Contenido del archivo:
+#   Nombre: Pedro
+#   Matricula: 2026-0530
+
+cat estudiante.txt
+ls -l
+
+# Permisos en formato numérico:
+#   r (lectura) = 4, w (escritura) = 2, x (ejecución) = 1
+#   Primer dígito: propietario | Segundo: grupo | Tercero: otros
+
+# Solo el propietario con control total (rwx------)
+chmod 700 estudiante.txt
+ls -l
+
+# Solo el grupo propietario con control total (---rwx---)
+chmod 070 estudiante.txt
+ls -l
+
+# El propietario ya no puede leer el archivo (Permiso denegado),
+# porque Linux aplica primero los permisos del propietario.
+cat estudiante.txt
+
+# Restaurar permisos normales para poder copiarlo (rw-r--r--)
+chmod 644 estudiante.txt
+
+# Crear materia2 y copiar el archivo
+cd ..
+mkdir materia2
+cp materia/estudiante.txt materia2/
+ls -l materia2
+
+# Eliminar la carpeta materia con todo su contenido (-r = recursivo)
+rm -r materia
+ls
+
+=====================================================================
+FIN DE LA TAREA 1
+=====================================================================
