@@ -1,0 +1,232 @@
+=====================================================================
+TAREA 2: PAQUETES, TAREAS PROGRAMADAS Y DISCOS EN LINUX MINT
+=====================================================================
+Estudiante:    Pedro
+Matrícula:     2026-0530
+Distribución:  Linux Mint 22.3 XFCE (64-bit)
+Virtualización: Oracle VirtualBox (red en modo NAT)
+=====================================================================
+
+
+=====================================================================
+PRÁCTICA 1: REPOSITORIOS E INSTALACIÓN DE BASHTOP
+=====================================================================
+
+---------------------------------------------------------------------
+1. Actualizar los repositorios y el sistema
+---------------------------------------------------------------------
+
+# Descarga la lista actualizada de paquetes de cada repositorio
+# (no instala nada, solo actualiza el catálogo)
+sudo apt update
+
+# Instala las nuevas versiones de los paquetes ya instalados.
+# -y confirma automáticamente.
+sudo apt upgrade -y
+
+# Nota: un paquete puede aparecer "retenido" por phasing. Ubuntu
+# libera algunas actualizaciones de forma gradual; no es un error.
+
+---------------------------------------------------------------------
+2. Listar los repositorios en uso
+---------------------------------------------------------------------
+
+# En Linux Mint los repositorios se configuran en esta carpeta
+ls /etc/apt/sources.list.d/
+
+# Repositorios oficiales (Linux Mint + Ubuntu, en el que se basa Mint).
+# Cada línea que empieza con "deb" es un repositorio.
+cat /etc/apt/sources.list.d/official-package-repositories.list
+
+# Muestra todos los repositorios que el sistema usa y su prioridad
+apt policy
+
+---------------------------------------------------------------------
+3. Buscar la herramienta en la caché de los repositorios
+---------------------------------------------------------------------
+
+# Buscar bashtop en el catálogo descargado por apt update
+apt-cache search bashtop
+
+# Ver la versión candidata y de qué repositorio viene
+apt-cache policy bashtop
+
+# Ver las dependencias que necesita
+apt-cache depends bashtop
+
+---------------------------------------------------------------------
+4. Instalar y presentar Bashtop Resource Monitor
+---------------------------------------------------------------------
+
+# Bashtop está disponible en los repositorios oficiales, por lo que
+# no fue necesario agregar un repositorio externo.
+sudo apt install bashtop -y
+
+# Ejecutar el monitor de recursos (CPU, memoria, discos, red y
+# procesos). Se sale con la tecla q.
+bashtop
+
+# Si no estuviera en los repositorios oficiales, se agregaría su
+# repositorio (PPA) antes de instalarlo:
+#   sudo add-apt-repository ppa:bashtop-monitor/bashtop
+#   sudo apt update
+#   sudo apt install bashtop -y
+
+---------------------------------------------------------------------
+5. Desinstalar Bashtop con todos sus archivos de configuración
+---------------------------------------------------------------------
+
+# purge elimina el programa Y sus archivos de configuración del
+# sistema (remove solo elimina el programa)
+sudo apt purge bashtop -y
+
+# Eliminar la configuración del usuario guardada en su carpeta personal
+rm -rf /home/pedroa/.config/bashtop
+
+# Verificar que ya no está instalado (no debe mostrar nada)
+dpkg -l | grep bashtop
+
+---------------------------------------------------------------------
+6. Eliminar las dependencias que ya no se usan
+---------------------------------------------------------------------
+
+# autoremove elimina las dependencias que ningún programa usa;
+# --purge también borra sus archivos de configuración
+sudo apt autoremove --purge -y
+
+
+=====================================================================
+PRÁCTICA 2: TAREAS PROGRAMADAS CON CRON Y AT
+=====================================================================
+
+---------------------------------------------------------------------
+1 y 2. Trabajos de cron (actualización y reinicio)
+---------------------------------------------------------------------
+
+# Editar las tareas programadas del usuario root (se requieren
+# permisos de administrador para actualizar y reiniciar).
+# Editor usado: nano (Ctrl+O guardar, Ctrl+X salir)
+sudo crontab -e
+
+# Formato de cada línea:
+#   minuto  hora  día_del_mes  mes  día_de_la_semana  comando
+#   * = todos | día de la semana: 0 = domingo ... 6 = sábado
+
+# Líneas agregadas al crontab:
+
+# Actualizar el sistema todos los días a las 11:00 p.m.
+0 23 * * * /usr/bin/apt update && /usr/bin/apt upgrade -y
+
+# Reiniciar la máquina todos los domingos a las 3:00 a.m.
+0 3 * * 0 /usr/sbin/reboot
+
+# Se usan rutas completas porque cron trabaja con un entorno mínimo.
+
+# Verificar las tareas programadas
+sudo crontab -l
+
+---------------------------------------------------------------------
+3. Tarea única con at para vaciar /tmp en 1 minuto
+---------------------------------------------------------------------
+
+# at no viene instalado por defecto en Linux Mint.
+# A diferencia de cron, at ejecuta una tarea UNA sola vez.
+sudo apt install at -y
+
+# Crear archivos de prueba y mostrar /tmp ANTES de la ejecución
+touch /tmp/prueba1.txt /tmp/prueba2.txt
+ls /tmp
+date
+
+# Programar el borrado del contenido de /tmp dentro de 1 minuto.
+# El aviso "commands will be executed using /bin/sh" es normal.
+echo "rm -rf /tmp/*" | sudo at now + 1 minute
+
+# Ver la cola de tareas pendientes de at
+sudo atq
+
+# Después de 1 minuto: la cola queda vacía y /tmp sin su contenido
+sudo atq
+ls /tmp
+
+
+=====================================================================
+PRÁCTICA 3: AGREGAR UN DISCO, FORMATEAR Y MONTAR
+=====================================================================
+
+---------------------------------------------------------------------
+1. Crear y conectar el disco de 20 GB (en VirtualBox)
+---------------------------------------------------------------------
+
+# Con la VM apagada:
+#   Settings -> Storage -> Controller: SATA -> Adds hard disk
+#   -> Create -> VDI -> Dynamically allocated
+#   -> Nombre: disco20GB | Tamaño: 20 GB -> Finish -> Choose -> OK
+
+---------------------------------------------------------------------
+2. Reiniciar, identificar el disco, particionar y formatear
+---------------------------------------------------------------------
+
+# Listar los discos: sda es el disco del sistema y sdb el disco nuevo
+lsblk
+
+# Crear una partición primaria que ocupe todo el disco
+sudo fdisk /dev/sdb
+#   n      -> nueva partición
+#   p      -> primaria
+#   1      -> número de partición
+#   Enter  -> primer sector (predeterminado)
+#   Enter  -> último sector (predeterminado, todo el disco)
+#   w      -> escribir los cambios y salir
+
+lsblk
+
+# Formatear la partición con el sistema de archivos ext4
+sudo mkfs.ext4 /dev/sdb1
+
+# Crear una carpeta en el escritorio y montar la partición en ella
+mkdir /home/pedroa/Escritorio/disco
+sudo mount /dev/sdb1 /home/pedroa/Escritorio/disco
+lsblk
+
+---------------------------------------------------------------------
+3. Entrar al directorio y crear el archivo
+---------------------------------------------------------------------
+
+cd /home/pedroa/Escritorio/disco
+
+# Se usa sudo porque la raíz del disco recién formateado es de root
+sudo touch AdrianAlcantara.txt
+
+# lost+found la crea ext4 automáticamente para recuperar archivos
+ls -l
+
+---------------------------------------------------------------------
+4. Desmontar la unidad y montarla en /mnt
+---------------------------------------------------------------------
+
+# Salir del directorio (no se puede desmontar una unidad en uso)
+cd /home/pedroa
+
+sudo umount /home/pedroa/Escritorio/disco
+
+# La carpeta queda vacía: el archivo está en el disco, no en la carpeta
+ls /home/pedroa/Escritorio/disco
+
+sudo mount /dev/sdb1 /mnt
+lsblk
+
+---------------------------------------------------------------------
+5. Comprobar que el archivo continúa en el disco
+---------------------------------------------------------------------
+
+cd /mnt
+ls -l
+
+# AdrianAlcantara.txt sigue ahí: la carpeta solo es el punto de
+# montaje y el disco se puede montar en cualquier lugar sin perder
+# la información.
+
+=====================================================================
+FIN DE LA TAREA 2
+=====================================================================
